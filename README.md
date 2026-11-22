@@ -5,8 +5,6 @@ A fork of [Orca](https://github.com/stablyai/orca) for large C++ projects such a
 What's different:
 
 - **Persistent worktree pool.** `+` reuses `pool-1`, `pool-2`... per project, so `Binaries` and `Intermediate` survive between tasks and each task builds incrementally instead of from scratch. Free a slot with **Return to pool**.
-- **Fix:** links to explicit HTML anchors (`<a id="...">`) work in the Markdown preview.
-
 The original Orca README follows.
 
 ---
