@@ -1,3 +1,4 @@
+import { persistentWorktreePoolSize } from '../../../shared/worktree/persistent-worktree-pool'
 import type { Repo } from '../../../shared/repository/repo-types'
 import { getRepoExecutionHostId } from '../../../shared/execution-host/execution-host'
 import { getDefaultRepoHookSettings } from '../../../shared/workspace-setup/repo-hook-settings-defaults'
@@ -30,6 +31,7 @@ export function repoGitUsernameCacheKey(
 export function hydrateRepo(repo: Repo, gitUsernameCache: ReadonlyMap<string, string>): Repo {
   const {
     folderUpgradeGitRootPath,
+    worktreePoolSize: rawWorktreePoolSize,
     repoIcon: rawRepoIcon,
     upstream: rawUpstream,
     gitRemoteIdentity: rawGitRemoteIdentity,
@@ -69,6 +71,9 @@ export function hydrateRepo(repo: Repo, gitUsernameCache: ReadonlyMap<string, st
 
   return {
     ...repoWithoutIcon,
+    ...(rawWorktreePoolSize !== undefined
+      ? { worktreePoolSize: persistentWorktreePoolSize(rawWorktreePoolSize) }
+      : {}),
     ...(typeof folderUpgradeGitRootPath === 'string' && folderUpgradeGitRootPath
       ? { folderUpgradeGitRootPath }
       : {}),

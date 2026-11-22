@@ -58,6 +58,7 @@ export type RepoUpdate = Partial<
     | 'editorFormatter'
     | 'worktreeBaseRef'
     | 'worktreeBasePath'
+    | 'worktreePoolSize'
     | 'kind'
     | 'symlinkPaths'
     | 'dictationTerms'

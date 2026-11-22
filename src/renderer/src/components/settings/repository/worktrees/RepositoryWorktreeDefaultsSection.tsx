@@ -1,3 +1,4 @@
+import { RepositoryPersistentWorktreePoolSetting } from './RepositoryPersistentWorktreePoolSetting'
 import type { GlobalSettings } from '../../../../../../shared/settings/global-settings-types'
 import type { Repo } from '../../../../../../shared/repository/repo-types'
 import { Button } from '../../../ui/button'
@@ -13,7 +14,10 @@ import {
   isLegacyRepoForExternalWorktreeVisibility
 } from '../../../../../../shared/worktree/visibility/external-worktree-visibility'
 
-type RepositoryWorktreeDefaultsUpdate = Pick<Repo, 'worktreeBasePath' | 'worktreeBaseRef'> & {
+type RepositoryWorktreeDefaultsUpdate = Pick<
+  Repo,
+  'worktreeBasePath' | 'worktreeBaseRef' | 'worktreePoolSize'
+> & {
   externalWorktreeVisibility?: Repo['externalWorktreeVisibility'] | null
 }
 
@@ -56,6 +60,11 @@ export function RepositoryWorktreeDefaultsSection({
   }
   return (
     <>
+      <RepositoryPersistentWorktreePoolSetting
+        repo={repo}
+        updateRepo={updateRepo}
+        forceVisible={forceVisible}
+      />
       <SearchableSetting
         title={t('auto.components.settings.RepositoryPane.externalWorktrees', 'External worktrees')}
         description={t(

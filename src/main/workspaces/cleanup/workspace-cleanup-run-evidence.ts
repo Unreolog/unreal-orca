@@ -37,6 +37,8 @@ import type { WorkspaceCleanupEvaluationInput } from '../../../shared/workspace-
 import type { WorkspaceCleanupWorkspaceRef } from '../../../shared/workspace-cleanup/workspace-cleanup-run'
 import { shortWorkspaceCleanupBranchName } from '../../../shared/workspace-cleanup/workspace-cleanup-candidate-fields'
 import type { WorkspaceCleanupPaneAgentStates } from './workspace-cleanup-terminal-activity'
+import { readWorktreeMetaForHost } from '../../persistence/host-qualified-worktree-meta'
+import { getRepoExecutionHostId } from '../../../shared/execution-host/execution-host'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const WORKTREE_PS_LIMIT = 100_000
@@ -254,6 +256,12 @@ export async function collectWorkspaceCleanupWorkspaces(args: {
       : scanned.has(summary.worktreeId)
         ? { ...inputWithoutGit(summary), blockers: ['git-status-error'] }
         : inputWithoutGit(summary)
+    if (
+      readWorktreeMetaForHost(store, summary.worktreeId, getRepoExecutionHostId(repo))
+        ?.persistentPool
+    ) {
+      baseInput.blockers = [...baseInput.blockers, 'persistent-pool']
+    }
     return {
       ref: {
         worktreeId: summary.worktreeId,

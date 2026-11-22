@@ -50,6 +50,7 @@ export function registerRepoUpdateHandler(mainWindow: BrowserWindow, store: Stor
             | 'editorFormatter'
             | 'worktreeBaseRef'
             | 'worktreeBasePath'
+            | 'worktreePoolSize'
             | 'kind'
             | 'symlinkPaths'
             | 'dictationTerms'

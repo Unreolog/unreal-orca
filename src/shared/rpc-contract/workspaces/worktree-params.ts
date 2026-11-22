@@ -159,6 +159,10 @@ export const WorktreeResolveCallerParent = z.object({
 })
 
 export const WorktreeSet = WorktreeSelector.extend({
+  persistentPool: z
+    .object({ slot: z.number().int().min(1).max(16), state: z.literal('available') })
+    .optional(),
+  instanceId: OptionalString,
   // Empty clears to branch/folder fallback; OptionalString would drop remote clears and restore the old name.
   displayName: OptionalPlainString,
   firstAgentMessageRenameError: z.null().optional(),

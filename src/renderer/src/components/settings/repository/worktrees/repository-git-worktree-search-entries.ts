@@ -7,6 +7,14 @@ import { searchKeywordTranslator } from '../../search/settings-search-keywords'
 function getRepositoryGitWorktreeSearchParts(repo: Repo, t: Translate = translate) {
   const translateSearchKeyword = searchKeywordTranslator(t)
   const entries = {
+    persistentPool: {
+      title: t('worktree.pool.settingTitle', 'Persistent worktree pool'),
+      description: t(
+        'worktree.pool.settingDescription',
+        'Reuse fixed worktree directories for new tasks and keep local build outputs.'
+      ),
+      keywords: [repo.displayName, 'pool', 'persistent', 'reuse', 'build', 'cache', 'slots']
+    },
     externalWorktrees: {
       title: t(
         'auto.components.settings.repository.search.externalWorktrees',
@@ -157,6 +165,7 @@ export function getRepositoryGitWorktreeSearchEntries(
 ): SettingsSearchEntry[] {
   const entries = getRepositoryGitWorktreeSearchParts(repo, t)
   return [
+    entries.persistentPool,
     entries.externalWorktrees,
     entries.base,
     entries.location,
@@ -168,7 +177,7 @@ export function getRepositoryGitWorktreeSearchEntries(
 export function getRepositoryGitWorktreeSearchMetadata(repo: Repo, t: Translate = translate) {
   const entries = getRepositoryGitWorktreeSearchParts(repo, t)
   return {
-    identity: [entries.externalWorktrees, entries.base, entries.location],
+    identity: [entries.persistentPool, entries.externalWorktrees, entries.base, entries.location],
     sparsePresets: [entries.sparsePresets],
     sharedPaths: [entries.sharedPaths]
   }

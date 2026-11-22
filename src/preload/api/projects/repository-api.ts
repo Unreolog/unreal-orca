@@ -66,6 +66,7 @@ export type RepositoryApi = {
         | 'editorFormatter'
         | 'worktreeBaseRef'
         | 'worktreeBasePath'
+        | 'worktreePoolSize'
         | 'kind'
         | 'issueSourcePreference'
         | 'defaultJiraProject'

@@ -36,6 +36,7 @@ export function mergeWorktree(
       : {}),
     ...(meta?.instanceId !== undefined ? { instanceId: meta.instanceId } : {}),
     repoId,
+    ...(meta?.persistentPool ? { persistentPool: meta.persistentPool } : {}),
     ...(meta?.projectId !== undefined ? { projectId: meta.projectId } : {}),
     ...(meta?.hostId !== undefined ? { hostId: meta.hostId } : {}),
     ...(meta?.projectHostSetupId !== undefined

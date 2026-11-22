@@ -1,3 +1,4 @@
+import { assertRepoPersistentPoolUpdate } from './repo-persistent-pool-update'
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type { Repo } from '../../../../shared/repository/repo-types'
@@ -136,6 +137,7 @@ export function createRepoUpdateActions(
         try {
           const sanitizedUpdates = sanitizeRepoUpdate(updates)
           const target = ownerTarget
+          await assertRepoPersistentPoolUpdate(target, sanitizedUpdates.worktreePoolSize)
           const updatedRepo =
             target.kind === 'local'
               ? await window.api.repos.update({
@@ -155,6 +157,12 @@ export function createRepoUpdateActions(
             sanitizedUpdates.projectGroupOrder !== undefined &&
             (!updatedRepo ||
               (updatedRepo.projectGroupOrder ?? null) !== sanitizedUpdates.projectGroupOrder)
+          ) {
+            return false
+          }
+          if (
+            sanitizedUpdates.worktreePoolSize !== undefined &&
+            updatedRepo?.worktreePoolSize !== sanitizedUpdates.worktreePoolSize
           ) {
             return false
           }

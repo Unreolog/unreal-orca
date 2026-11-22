@@ -58,6 +58,7 @@ export type WorkspaceCleanupEvaluationInput = Pick<
 >
 
 const NOT_REMOVABLE_BLOCKERS: ReadonlySet<WorkspaceCleanupBlocker> = new Set([
+  'persistent-pool',
   'main-worktree',
   'folder-repo'
 ])

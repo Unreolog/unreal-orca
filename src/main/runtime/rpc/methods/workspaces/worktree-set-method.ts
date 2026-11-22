@@ -2,12 +2,22 @@ import { WorktreeSet } from '../../../../../shared/rpc-contract/workspaces/workt
 import { displayNameUpdatePinsLabel } from '../../../../../shared/worktree/metadata/display-name-provenance'
 import { getWorkspaceStatusWarning } from '../../../../../shared/workspace/status/workspace-status-warning'
 import { defineMethod } from '../../core'
+import { releasePersistentWorktree } from '../../../../workspaces/pool/release-persistent-worktree'
 
 export const WORKTREE_SET_METHOD = defineMethod({
   name: 'worktree.set',
   permission: 'workspace',
   params: WorktreeSet,
   handler: async (params, { runtime }) => {
+    if (params.persistentPool) {
+      const worktree = await releasePersistentWorktree(
+        runtime,
+        params.worktree,
+        params.persistentPool,
+        params.instanceId
+      )
+      return { worktree }
+    }
     const acknowledgement =
       params.acknowledgeAttention === true && params.isUnread === false
         ? await runtime

@@ -17,6 +17,8 @@ import {
 import { resolveLocalGitUsername } from '../../../git/repositories/git-username'
 import {
   computeWorkspaceRoot,
+  computeWorktreePath,
+  ensurePathWithinWorkspace,
   getWorktreePathSettings
 } from '../../../ipc/worktrees/paths/worktree-logic'
 import { resolveWorktreeCreateBase } from '../../../workspaces/creation/worktree-create-base'
@@ -46,6 +48,8 @@ import {
   localWorktreeCreateExecutionHost,
   type WorktreeCreateTimingRecorder
 } from '../../../workspaces/creation/worktree-create-timing'
+import { claimPersistentWorktree } from '../../../workspaces/pool/persistent-worktree-pool'
+import { runtimePathExists } from '../catalog/runtime-worktree-filesystem'
 
 type RuntimeLocalWorktreeCreateArgs<T> = {
   request: RuntimeManagedWorktreeCreateArgs
@@ -180,11 +184,44 @@ async function performRuntimeLocalWorktreeCreate<T>(
       pathClaim
     })
   )
+  if (repo.worktreePoolSize && (request.sparseCheckout || worktreeGitOptions.wslDistro)) {
+    throw new Error('Persistent worktree pools require a native, full checkout on the owning host.')
+  }
+  const poolClaim = await claimPersistentWorktree({
+    repo,
+    store,
+    makePath: (name) =>
+      ensurePathWithinWorkspace(
+        computeWorktreePath(
+          name,
+          repo.path,
+          pathSettings,
+          computeWorkspaceRoot(repo.path, pathSettings)
+        ),
+        computeWorkspaceRoot(repo.path, pathSettings)
+      ),
+    pathExists: runtimePathExists
+  })
+  if (poolClaim) {
+    candidate.worktreePath = poolClaim.worktreePath
+    if (!pathClaim.claim(candidate.worktreePath)) {
+      poolClaim.release()
+      throw new Error('This pool worktree is already being assigned to another task.')
+    }
+  }
   const releaseInFlightHold = await holdInFlightWorktreeCreate(
     repo.id,
     candidate.worktreePath,
     worktreeGitOptions
-  )
+  ).catch(async (error: unknown) => {
+    try {
+      await poolClaim?.abortUnmaterialized()
+    } catch (recoveryError) {
+      console.warn('[worktree-pool] failed reservation remains occupied', recoveryError)
+    }
+    poolClaim?.release()
+    throw error
+  })
   try {
     const git = await createRuntimeLocalGitWorktree({
       request,
@@ -200,7 +237,8 @@ async function performRuntimeLocalWorktreeCreate<T>(
       localWorktreeGitOptions: worktreeGitOptions,
       baseRefRefresh,
       rearm: args.rearm,
-      timing: args.timing
+      timing: args.timing,
+      poolClaim
     })
     const materialized = await materializeRuntimeLocalWorktree({
       request,
@@ -221,10 +259,13 @@ async function performRuntimeLocalWorktreeCreate<T>(
       effectiveCreatedWithAgent: args.createdWithAgent,
       localWorktreeGitOptions: worktreeGitOptions,
       onMetadataPersisted: (worktree) => {
+        poolClaim?.allowStartup()
         releaseInFlightHold()
         return args.onWorktreeMetadataPersisted(worktree)
       },
-      timing: args.timing
+      timing: args.timing,
+      persistentPoolSlot: poolClaim?.slot,
+      reusedPoolSlot: poolClaim?.reused
     })
     return {
       ...materialized,
@@ -233,7 +274,15 @@ async function performRuntimeLocalWorktreeCreate<T>(
       addResult: git.addResult,
       ...(base.baseFallback ? { baseFallback: base.baseFallback } : {})
     }
+  } catch (error) {
+    try {
+      await poolClaim?.abortUnmaterialized()
+    } catch (recoveryError) {
+      console.warn('[worktree-pool] failed reservation remains occupied', recoveryError)
+    }
+    throw error
   } finally {
     releaseInFlightHold()
+    poolClaim?.release()
   }
 }
