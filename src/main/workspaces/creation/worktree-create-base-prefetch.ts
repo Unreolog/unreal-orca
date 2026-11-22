@@ -133,7 +133,7 @@ export async function prefetchWorktreeCreateBase(args: {
   if (args.repo.connectionId) {
     return undefined
   }
-  const prepareCheckout = args.prepareCheckout
+  const prepareCheckout = args.repo.worktreePoolSize ? undefined : args.prepareCheckout
   let preparation: Promise<void> | undefined
   const prepare = (base: string, beforeMaterialization?: Promise<void>): void => {
     if (!preparation && prepareCheckout) {

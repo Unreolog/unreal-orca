@@ -1,3 +1,4 @@
+import { WorktreeContextMenuReturnToPoolItem } from './WorktreeContextMenuReturnToPoolItem'
 import { Trash2 } from 'lucide-react'
 import { DropdownMenuItem, DropdownMenuShortcut } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -36,6 +37,13 @@ export function WorktreeContextMenuDeleteItems({ model }: { model: WorktreeConte
             : t('auto.components.sidebar.WorktreeContextMenu.f4475537d8', 'Delete')
   return (
     <>
+      {!isMultiContext && worktree.persistentPool?.state === 'active' ? (
+        <WorktreeContextMenuReturnToPoolItem
+          worktree={worktree}
+          disabled={contextDeletePending}
+          closeMenu={() => model.setMenuOpenState(false)}
+        />
+      ) : null}
       {/* Git cannot remove primary checkouts; keep disabled Delete beside the enabled Remove Project action. */}
       {!isMultiContext && removesProject ? (
         <Tooltip>

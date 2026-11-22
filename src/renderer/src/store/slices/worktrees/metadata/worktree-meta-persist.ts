@@ -9,6 +9,7 @@ import {
 import { callRuntimeRpc } from '../../../../runtime/rpc/calls/runtime-rpc-call'
 import { TASK_SOURCE_CONTEXT_RUNTIME_CAPABILITY } from '../../../../../../shared/work-items/task-source-runtime-capabilities'
 import {
+  WORKTREE_PERSISTENT_POOL_RUNTIME_CAPABILITY,
   WORKTREE_RENAME_ERROR_DISMISS_RUNTIME_CAPABILITY,
   WORKTREE_GITHUB_PR_SUPPRESSION_RUNTIME_CAPABILITY,
   WORKTREE_LINKED_WORK_ITEM_CONTEXT_RUNTIME_CAPABILITY
@@ -96,6 +97,16 @@ async function persistWorktreeMetaUntracked(
     })
     return
   }
+  if ('persistentPool' in updates) {
+    await assertRuntimeEnvironmentCapability(
+      target.environmentId,
+      WORKTREE_PERSISTENT_POOL_RUNTIME_CAPABILITY,
+      translate(
+        'worktree.pool.updateRuntime',
+        'Update the remote runtime to return workspaces to the pool.'
+      )
+    )
+  }
   await assertWorkspaceAttachmentWriteCapability(target, updates)
   if (updates.firstAgentMessageRenameError === null && updates.displayName === undefined) {
     await assertRuntimeEnvironmentCapability(
@@ -174,6 +185,6 @@ async function persistWorktreeMetaUntracked(
       worktree: identityKey ? `identity:${identityKey}` : toRuntimeWorktreeSelector(worktreeId),
       ...encodePushTargetClearForRuntimeRpc(compatibleUpdates)
     },
-    { timeoutMs: 15_000 }
+    { timeoutMs: 'persistentPool' in updates ? 60_000 : 15_000 }
   )
 }

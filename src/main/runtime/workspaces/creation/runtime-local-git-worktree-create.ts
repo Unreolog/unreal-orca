@@ -30,6 +30,8 @@ import {
 import type { WorktreeCreateTimingRecorder } from '../../../workspaces/creation/worktree-create-timing'
 import { exactNameLateCollision } from '../../../workspaces/creation/worktree-create-exact-name'
 import { runtimePathExists } from '../catalog/runtime-worktree-filesystem'
+import type { PersistentPoolClaim } from '../../../workspaces/pool/persistent-worktree-pool'
+import { reusePersistentWorktree } from '../../../workspaces/pool/reuse-persistent-worktree'
 
 export type RuntimeLocalBaseRefRefresh = {
   /** Awaits the deferred refresh started before naming, if any. */
@@ -79,6 +81,7 @@ export function startRuntimeLocalBaseRefRefresh(args: {
 }
 
 export async function createRuntimeLocalGitWorktree(args: {
+  poolClaim?: PersistentPoolClaim
   request: RuntimeManagedWorktreeCreateArgs
   repo: Repo
   store: RuntimeStore
@@ -139,8 +142,19 @@ export async function createRuntimeLocalGitWorktree(args: {
   let addResult: AddWorktreeResult
   try {
     addResult = await args.timing.time('git_worktree_add', async () => {
+      if (args.poolClaim?.reused) {
+        return reusePersistentWorktree({
+          repoPath: args.repo.path,
+          worktreePath: args.worktreePath,
+          branch: args.branchName,
+          baseBranch,
+          refreshLocalBaseRef: args.settings.refreshLocalBaseRefOnWorktreeCreate,
+          options: addOptions
+        })
+      }
       // Exact mode skips prepared checkouts so the final write is a non-forcing `worktree add -b`.
       if (
+        args.poolClaim ||
         sparseDirectories.length > 0 ||
         args.checkoutExistingBranch ||
         args.request.branchIntent === 'open-existing-v2' ||

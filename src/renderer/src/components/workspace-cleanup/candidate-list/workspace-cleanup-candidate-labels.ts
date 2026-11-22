@@ -9,6 +9,8 @@ type ContextDetailKind = 'terminal' | 'editor' | 'browser' | 'diff' | 'agent'
 
 export function getWorkspaceCleanupBlockerLabel(blocker: WorkspaceCleanupBlocker): string {
   switch (blocker) {
+    case 'persistent-pool':
+      return translate('worktree.pool.cleanupProtection', 'Persistent pool slot')
     case 'main-worktree':
       return translate(
         'auto.components.workspace.cleanup.candidateRow.mainWorkspaceBlocker',

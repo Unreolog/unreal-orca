@@ -44,6 +44,7 @@ export type WorkspaceCleanupInactivityInput = {
 }
 
 export type WorkspaceCleanupBlocker =
+  | 'persistent-pool'
   | 'main-worktree'
   | 'folder-repo'
   | 'pinned'

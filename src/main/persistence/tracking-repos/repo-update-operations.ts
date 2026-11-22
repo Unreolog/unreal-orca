@@ -101,6 +101,7 @@ export class RepoUpdatePersistenceOperations {
         | 'editorFormatter'
         | 'worktreeBaseRef'
         | 'worktreeBasePath'
+        | 'worktreePoolSize'
         | 'kind'
         | 'folderUpgradeGitRootPath'
         | 'executionHostId'
@@ -141,6 +142,9 @@ export class RepoUpdatePersistenceOperations {
     assertKindChangeKeepsFolderWorkspaces(repo, updates.kind, this.state.worktreeMeta)
     const previousGhAccount = repo.ghAccount
     const sanitizedUpdates = sanitizeRepoUpdatesForPersistence(updates)
+    if (sanitizedUpdates.worktreePoolSize && (sanitizedUpdates.kind ?? repo.kind) === 'folder') {
+      throw new Error('Folder projects do not support persistent worktree pools.')
+    }
     if (
       'executionHostId' in updates &&
       getRepoExecutionHostId({ ...repo, ...updates }) !== getRepoExecutionHostId(repo)

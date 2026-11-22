@@ -23,8 +23,11 @@ import type { RuntimeStore } from '../../construction/runtime-store-contract'
 import { attributedSparsePresetId } from '../../../ipc/repos/sparse-preset-attribution'
 import type { WorktreeCreateTimingRecorder } from '../../../workspaces/creation/worktree-create-timing'
 import { hostWorktreeTargetForRepo } from '../../../persistence/host-qualified-worktree-meta'
+import { persistentPoolTaskMetadata } from '../../../workspaces/pool/persistent-worktree-pool'
 
 export async function materializeRuntimeLocalWorktree<T>(args: {
+  persistentPoolSlot?: number
+  reusedPoolSlot?: boolean
   request: RuntimeManagedWorktreeCreateArgs
   repo: Repo
   store: RuntimeStore
@@ -76,6 +79,7 @@ export async function materializeRuntimeLocalWorktree<T>(args: {
   )
   const meta = timing.timeSync('persist_metadata', () =>
     store.setWorktreeMeta(hostWorktreeTargetForRepo(worktreeId, repo), {
+      ...(args.persistentPoolSlot ? persistentPoolTaskMetadata(args.persistentPoolSlot) : {}),
       instanceId: randomUUID(),
       ...getProjectHostSetupWorktreeMeta(store.getProjectHostSetups?.() ?? [], repo),
       lastActivityAt: now,
@@ -147,12 +151,9 @@ export async function materializeRuntimeLocalWorktree<T>(args: {
     hostId: meta.hostId ?? getRepoExecutionHostId(repo)
   }
   const metadataResult = args.onMetadataPersisted(worktree)
-  const { includeCopyWarning } = await materializeWorktreeContentPaths(
-    repo,
-    created.path,
-    localWorktreeGitOptions,
-    timing
-  )
+  const { includeCopyWarning } = args.reusedPoolSlot
+    ? {}
+    : await materializeWorktreeContentPaths(repo, created.path, localWorktreeGitOptions, timing)
   return { worktree, metadataResult, ...(includeCopyWarning ? { includeCopyWarning } : {}) }
 }
 

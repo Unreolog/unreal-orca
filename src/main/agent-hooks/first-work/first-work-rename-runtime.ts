@@ -121,20 +121,22 @@ export function firstWorkRenameDeps(
     },
     renameWorktreeFolder: ENABLE_FIRST_WORK_FOLDER_RENAME
       ? (worktreeId, newLeaf) =>
-          renameWorktreeFolderOnFirstWork(worktreeId, newLeaf, {
-            getRepo: (repoId) => store.getRepo(repoId),
-            getSettings: () => store.getSettings(),
-            migrateWorktreeIdentity: (target, newId) =>
-              store.migrateWorktreeIdentity!(target, newId),
-            notifyWorktreeRenamed: (repoId, oldId, newId) =>
-              runtime.notifyWorktreeFolderRenamed(repoId, oldId, newId),
-            pathExists: (candidate) =>
-              access(candidate).then(
-                () => true,
-                () => false
-              ),
-            moveWorktree
-          })
+          store.getWorktreeMeta(worktreeId)?.persistentPool
+            ? Promise.resolve(false)
+            : renameWorktreeFolderOnFirstWork(worktreeId, newLeaf, {
+                getRepo: (repoId) => store.getRepo(repoId),
+                getSettings: () => store.getSettings(),
+                migrateWorktreeIdentity: (target, newId) =>
+                  store.migrateWorktreeIdentity!(target, newId),
+                notifyWorktreeRenamed: (repoId, oldId, newId) =>
+                  runtime.notifyWorktreeFolderRenamed(repoId, oldId, newId),
+                pathExists: (candidate) =>
+                  access(candidate).then(
+                    () => true,
+                    () => false
+                  ),
+                moveWorktree
+              })
       : undefined,
     setRenameError: (worktreeId, error, failureOutput) => {
       // Refresh diagnostics before deduping; repeated text can come from a new run.

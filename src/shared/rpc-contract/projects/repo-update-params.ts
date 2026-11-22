@@ -59,6 +59,7 @@ export function createRepoUpdateSchema<T extends Readonly<Record<string, z.ZodTy
       editorFormatter: editorFormatterSchema.optional(),
       worktreeBaseRef: OptionalString,
       worktreeBasePath: OptionalString,
+      worktreePoolSize: z.number().int().min(0).max(16).optional(),
       kind: z.enum(['git', 'folder']).optional(),
       symlinkPaths: z.array(z.string()).optional(),
       dictationTerms: z.unknown().transform(normalizeDictationTerms).optional(),

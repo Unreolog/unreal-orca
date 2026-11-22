@@ -27,6 +27,7 @@ import { summarizeWorktreePtyStopVerdict } from '../../workspaces/removal/worktr
 import { clearClosedWorktreeResumeRecords } from './worktree-sleep-resume-records'
 import { anySleepKeyNames, hostSleepKey, resolveSleepScope } from './worktree-terminal-sleep-key'
 import type { WorktreeSleepScope } from './worktree-terminal-sleep-key'
+import { assertPersistentPoolTargetSpawnAllowed } from '../../../workspaces/pool/persistent-worktree-pool'
 
 export abstract class OrcaRuntimeWithStopTerminalsForWorktree extends OrcaRuntimeWithResolveTerminalSplitSourceAuthority {
   protected abstract sleepResolvedWorktreeTerminals(
@@ -276,7 +277,14 @@ export abstract class OrcaRuntimeWithStopTerminalsForWorktree extends OrcaRuntim
       return () => {}
     }
     const worktreeId = target.id
+    assertPersistentPoolTargetSpawnAllowed(this.store, target)
     const release = await this.acquireWorktreeTerminalMutation(worktreeId, 'shared')
+    try {
+      assertPersistentPoolTargetSpawnAllowed(this.store, target)
+    } catch (error) {
+      release()
+      throw error
+    }
     const key = hostSleepKey(target.hostId, worktreeId)
     const sleepState = this.terminalSleepStateByHostWorktree.get(key)
     // Why: re-checked under the lock, since a sleep can commit while an automatic spawn waits for it.

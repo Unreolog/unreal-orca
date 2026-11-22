@@ -20,6 +20,7 @@ import { normalizeLinkedWorkItemFields } from '../ipc-context-schemas'
 import { isRemovedFolderWorkspaceInstance } from '../../../workspaces/catalog/folder-workspace-meta-presence'
 import { resolveWorktreeMetaOwner } from '../../../persistence/host-qualified-worktree-meta'
 import { hostWorktreeTarget } from '../../../../shared/worktree/host-qualified-identity'
+import { releasePersistentWorktree } from '../../../workspaces/pool/release-persistent-worktree'
 import type { WorktreeIpcContext } from '../worktree-ipc-context'
 import {
   isWslMoveSourceHost,
@@ -32,7 +33,7 @@ export function registerWorktreeMetadataHandlers(context: WorktreeIpcContext): v
   const { mainWindow, store, runtime } = context
   ipcMain.handle(
     'worktrees:updateMeta',
-    (
+    async (
       _event,
       args: {
         worktreeId: string
@@ -78,6 +79,18 @@ export function registerWorktreeMetadataHandlers(context: WorktreeIpcContext): v
         : resolveWorktreeMetaOwner(store, args.worktreeId)
       if (!target) {
         return null
+      }
+      if (args.updates.persistentPool) {
+        if (args.updates.persistentPool.state !== 'available') {
+          throw new Error('Pool slot occupancy is managed by Orca, not workspace metadata edits.')
+        }
+        return releasePersistentWorktree(
+          runtime,
+          `id:${args.worktreeId}`,
+          { slot: args.updates.persistentPool.slot, state: 'available' },
+          args.updates.instanceId,
+          target.hostId
+        )
       }
       const meta = store.setWorktreeMeta(target, sanitizedUpdates)
       // Local optimistic state is current; notifying it would re-sort the sidebar (#209).

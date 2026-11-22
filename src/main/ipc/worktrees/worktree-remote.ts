@@ -198,6 +198,12 @@ import {
   readWorktreeMetaForHost,
   worktreeRowTarget
 } from '../../persistence/host-qualified-worktree-meta'
+import {
+  claimPersistentWorktree,
+  persistentPoolTaskMetadata,
+  type PersistentPoolClaim
+} from '../../workspaces/pool/persistent-worktree-pool'
+import { reusePersistentWorktree } from '../../workspaces/pool/reuse-persistent-worktree'
 // Bound network fetches so Windows credential-manager GUI hangs cannot wedge creation (STA-1292).
 const CREATE_BASE_FALLBACK_FETCH_TIMEOUT_MS = 60_000
 // Deferred materialization also fetches outside the create path and needs the same hang bound.
@@ -1005,6 +1011,7 @@ export function createLocalWorktree(
   // Always rearm consumed preparation, even if later copy, metadata or startup work fails.
   const rearm: PreparationRearmHolder = { fire: () => {} }
   const pathClaim = openWorktreeCreatePathClaim()
+  const poolClaim: { current?: PersistentPoolClaim } = {}
   return worktreeCreateGit
     .run(() =>
       performLocalWorktreeCreate(
@@ -1016,11 +1023,21 @@ export function createLocalWorktree(
         timing,
         runtime,
         pathClaim,
+        poolClaim,
         onWorkspaceCreated
       )
     )
+    .catch(async (error: unknown) => {
+      try {
+        await poolClaim.current?.abortUnmaterialized()
+      } catch (recoveryError) {
+        console.warn('[worktree-pool] failed reservation remains occupied', recoveryError)
+      }
+      throw error
+    })
     .finally(() => {
       pathClaim.release()
+      poolClaim.current?.release()
       // Finish create timing before rearm so replacement preparation is not charged to this request.
       timing.finish()
       rearm.fire()
@@ -1036,6 +1053,7 @@ async function performLocalWorktreeCreate(
   timing: WorktreeCreateTimingRecorder,
   runtime: OrcaRuntimeService,
   pathClaim: WorktreeCreatePathClaim,
+  poolClaim: { current?: PersistentPoolClaim },
   onWorkspaceCreated?: (worktreeId: string) => void
 ): Promise<CreateWorktreeResult> {
   // Why: no await without a ref, so the common create keeps its synchronous probe start.
@@ -1504,6 +1522,26 @@ async function performLocalWorktreeCreate(
     )
   }
 
+  if (repo.worktreePoolSize && (args.sparseCheckout || localWorktreeGitOptions.wslDistro)) {
+    throw new Error('Persistent worktree pools require a native, full checkout on the owning host.')
+  }
+  poolClaim.current = await claimPersistentWorktree({
+    repo,
+    store,
+    makePath: (name) =>
+      ensurePathWithinWorkspace(
+        computeWorktreePath(name, repo.path, worktreePathSettings, workspaceRoot),
+        workspaceRoot
+      ),
+    pathExists: async (path) => existsSync(path)
+  })
+  if (poolClaim.current) {
+    worktreePath = poolClaim.current.worktreePath
+    if (!pathClaim.claim(worktreePath)) {
+      throw new Error('This pool worktree is already being assigned to another task.')
+    }
+  }
+
   assertAttachableParentWorkspace(
     store,
     args.parentWorkspace,
@@ -1570,8 +1608,22 @@ async function performLocalWorktreeCreate(
   try {
     addResult =
       (await timing.time('git_worktree_add', async () => {
+        if (poolClaim.current?.reused) {
+          return reusePersistentWorktree({
+            repoPath: repo.path,
+            worktreePath,
+            branch: branchName,
+            baseBranch,
+            refreshLocalBaseRef: settings.refreshLocalBaseRefOnWorktreeCreate,
+            options: addProjectGitOptions({
+              ...newBranchOptions,
+              ...(checkoutExistingBranch ? { checkoutExistingBranch: true } : {})
+            })
+          })
+        }
         // Exact mode skips prepared checkouts so the final write is a non-forcing `worktree add -b`.
         if (
+          !poolClaim.current &&
           sparseDirectories.length === 0 &&
           !checkoutExistingBranch &&
           args.branchIntent !== 'open-existing-v2' &&
@@ -1695,6 +1747,7 @@ async function performLocalWorktreeCreate(
   // Review head SHA/ref seeds creation; Source Control comparison uses the review target branch.
   const metadataBaseRef = args.compareBaseRef ?? remoteTrackingBase?.ref ?? baseBranch
   const metaUpdates: Partial<WorktreeMeta> = {
+    ...(poolClaim.current ? persistentPoolTaskMetadata(poolClaim.current.slot) : {}),
     // Path IDs can be reused after external deletion; rotate instance identity to reject stale lineage.
     instanceId: randomUUID(),
     ...(args.comment ? { comment: args.comment } : {}),
@@ -1761,6 +1814,7 @@ async function performLocalWorktreeCreate(
     const meta = store.setWorktreeMeta(hostWorktreeTargetForRepo(worktreeId, repo), metaUpdates)
     return { worktree: mergeWorktree(repo.id, created, meta) }
   })
+  poolClaim.current?.allowStartup()
   onWorkspaceCreated?.(worktreeId)
   const {
     lineage: worktreeLineage,
@@ -1782,7 +1836,7 @@ async function performLocalWorktreeCreate(
 
   // Materialize configured shared paths before setup scripts need them.
   const symlinkPaths = repo.symlinkPaths ?? []
-  if (symlinkPaths.length > 0) {
+  if (symlinkPaths.length > 0 && !poolClaim.current?.reused) {
     await timing.time('create_symlinks', async () => {
       await createWorktreeLinkedPaths(repo.path, created.path, symlinkPaths)
     })
@@ -1797,7 +1851,7 @@ async function performLocalWorktreeCreate(
       resolveWorktreeIncludePaths(repo.path, localWorktreeGitOptions)
     )
   ])
-  if (sharedDirectories.length > 0) {
+  if (sharedDirectories.length > 0 && !poolClaim.current?.reused) {
     await timing.time('create_shared_directories', async () => {
       await createWorktreeSharedPaths(repo.path, created.path, sharedDirectories)
     })
@@ -1805,7 +1859,7 @@ async function performLocalWorktreeCreate(
 
   // Repo .worktreeinclude promises private copies; skip paths already linked by user settings.
   let includeCopyWarning: string | undefined
-  if (includePaths.length > 0) {
+  if (includePaths.length > 0 && !poolClaim.current?.reused) {
     await timing.time('copy_worktreeinclude', async () => {
       const skippedIncludePaths = await createWorktreeCopiedPaths(
         repo.path,

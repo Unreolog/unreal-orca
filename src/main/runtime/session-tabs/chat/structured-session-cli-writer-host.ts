@@ -11,6 +11,9 @@ import { CLI_CONVERSATION_ADOPTING_AGENTS } from '../../../../shared/agent-sessi
 import { recordConversationKey } from '../../../native-chat/conversation-adoption/structured-conversation-key'
 import type { StructuredAgentCliSourceRoute } from '../../../native-chat/conversation-adoption/structured-agent-cli-source'
 import { OrcaRuntimeWithGetWorktreePs } from '../../workspaces/process-listing/workspace-process-listing'
+import { readWorktreeMetaForHost } from '../../../persistence/host-qualified-worktree-meta'
+import { assertPersistentPoolSpawnAllowed } from '../../../workspaces/pool/persistent-worktree-pool'
+import { getRepoIdFromWorktreeId } from '../../../../shared/worktree/id'
 
 export abstract class OrcaRuntimeWithStructuredSessionCliWriterHost extends OrcaRuntimeWithGetWorktreePs {
   getStructuredAgentCliSourceRoute(source: {
@@ -77,6 +80,18 @@ export abstract class OrcaRuntimeWithStructuredSessionCliWriterHost extends Orca
   }
 
   protected async assertStructuredChatAcquireAdmissible(record: AgentSessionRecord): Promise<void> {
+    const assertPool = (): void =>
+      assertPersistentPoolSpawnAllowed(
+        getRepoIdFromWorktreeId(record.location.workspaceId),
+        readWorktreeMetaForHost(
+          this.requireStore(),
+          record.location.workspaceId,
+          record.location.executionHostId
+        ),
+        record.location.executionHostId,
+        [record.sessionId, ...(record.forkedFrom ? [record.forkedFrom.sessionId] : [])]
+      )
+    assertPool()
     const head = record.providerHandleChain.at(-1)
     const key = head ? recordConversationKey(record, head) : null
     if (
@@ -87,6 +102,7 @@ export abstract class OrcaRuntimeWithStructuredSessionCliWriterHost extends Orca
     ) {
       await this.assertStructuredAdoptionTerminalWritersExited(record.provider, key.id)
     }
+    assertPool()
   }
 
   async assertStructuredAdoptionTerminalWritersExited(

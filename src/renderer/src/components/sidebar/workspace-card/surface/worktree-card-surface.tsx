@@ -1,4 +1,6 @@
 import React from 'react'
+import { Badge } from '@/components/ui/badge'
+import { useTranslate } from '@/i18n/use-translate'
 import { LoaderCircle } from 'lucide-react'
 
 import { cn } from '@/lib/class-names'
@@ -49,6 +51,7 @@ export function WorktreeCardSurface({ card }: { card: WorktreeCardController }):
     setShowRenameErrorDialog,
     contentIndent
   } = card
+  const t = useTranslate()
   const isSleeping = useIsSleepingWorktree(worktree.id)
   const geometryFor = (statusLane: boolean) =>
     getWorktreeCardFrameGeometry({ flushSurface, contentIndent, statusLane })
@@ -128,6 +131,12 @@ export function WorktreeCardSurface({ card }: { card: WorktreeCardController }):
       ) : (
         parentCardContent
       )}
+
+      {worktree.persistentPool?.state === 'available' ? (
+        <div className="px-2 pb-1">
+          <Badge variant="outline">{t('worktree.pool.available', 'Available in pool')}</Badge>
+        </div>
+      ) : null}
 
       {lineageChildren ? (
         <div

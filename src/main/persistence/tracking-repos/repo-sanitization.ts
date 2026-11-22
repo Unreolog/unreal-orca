@@ -1,3 +1,4 @@
+import { persistentWorktreePoolSize } from '../../../shared/worktree/persistent-worktree-pool'
 import type { RepoProjectHostSetupMethod } from '../../../shared/project/project-types'
 import type { Repo } from '../../../shared/repository/repo-types'
 import { editorFormatterSchema } from '../../../shared/editor/formatting/editor-formatter'
@@ -79,6 +80,7 @@ export function sanitizeRepoUpdatesForPersistence<
       | 'upstream'
       | 'gitRemoteIdentity'
       | 'worktreeBasePath'
+      | 'worktreePoolSize'
       | 'projectHostSetupMethod'
       | 'forkSyncMode'
       | 'agentWorkspaceTrust'
@@ -92,6 +94,14 @@ export function sanitizeRepoUpdatesForPersistence<
   }
 >(updates: T): T {
   const sanitized = { ...updates }
+  if ('worktreePoolSize' in sanitized && sanitized.worktreePoolSize !== undefined) {
+    if (
+      sanitized.worktreePoolSize !== 0 &&
+      persistentWorktreePoolSize(sanitized.worktreePoolSize) === 0
+    ) {
+      throw new Error('Worktree pool size must be an integer from 0 to 16.')
+    }
+  }
   if ('editorFormatter' in sanitized && sanitized.editorFormatter !== undefined) {
     sanitized.editorFormatter = editorFormatterSchema.parse(sanitized.editorFormatter)
   }

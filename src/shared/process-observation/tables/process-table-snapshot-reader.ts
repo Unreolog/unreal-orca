@@ -290,6 +290,10 @@ export async function getFreshProcessTableSnapshot(): Promise<ProcessTableRow[]>
   return (await processTableReader.getFreshSnapshot()).lenient()
 }
 
+export async function getFreshStrictProcessTableSnapshot(): Promise<ProcessTableRow[]> {
+  return (await processTableReader.getFreshSnapshot()).strict()
+}
+
 export async function getStrictProcessTableSnapshot(): Promise<ProcessTableRow[]> {
   return (await processTableReader.getSnapshot()).strict()
 }
