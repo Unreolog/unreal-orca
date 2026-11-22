@@ -5,7 +5,7 @@ import type { ProgrammaticScrollMarks } from '@/lib/list-interaction/virtualized
 import { VIRTUALIZED_SCROLL_ANCHOR_RECORD_EVENT } from '@/lib/list-interaction/virtualized-scrolling/useVirtualizedScrollAnchor'
 import { listenMarkdownPreviewScrollInput } from './markdown-preview-scroll-input'
 import {
-  resolveMarkdownPreviewAnchor,
+  decodeMarkdownPreviewAnchor,
   getMarkdownPreviewAnchorScrollTop,
   scrollMarkdownPreviewTo
 } from './markdown-preview-anchor-navigation'
@@ -70,10 +70,7 @@ export function useMarkdownPreviewNavigation({
     () => ({
       search: revealSearchMatch,
       anchor: (rawId) => {
-        const id = resolveMarkdownPreviewAnchor(rawId, (id) => anchorBlocks.has(id))
-        if (id === null) {
-          return false
-        }
+        const id = decodeMarkdownPreviewAnchor(rawId)
         const index = anchorBlocks.get(id)
         if (index === undefined) {
           return false

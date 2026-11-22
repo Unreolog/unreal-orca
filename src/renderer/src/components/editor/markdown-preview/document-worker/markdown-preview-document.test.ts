@@ -5,7 +5,6 @@ import {
   parseMarkdownPreviewDocument,
   renderMarkdownPreviewBlock
 } from './markdown-preview-document-tree'
-import { resolveMarkdownPreviewAnchor } from '../viewport/markdown-preview-anchor-navigation'
 
 function elements(node: Nodes): Nodes[] {
   return [node, ...('children' in node ? node.children.flatMap(elements) : [])]
@@ -20,31 +19,6 @@ function highlightClasses(node: Nodes): string[] {
 }
 
 describe('large Markdown preview documents', () => {
-  it('resolves authored HTML anchors after sanitization without changing the document', () => {
-    const { document } = parseMarkdownPreviewDocument(
-      '[Section 31](#mcp-59-preview2)\n\n<a id="mcp-59-preview2"></a>\n\n## Section 31'
-    )
-    const ids = new Set(document.blocks.flatMap((block) => block.anchors))
-    expect(resolveMarkdownPreviewAnchor('mcp-59-preview2', (id) => ids.has(id))).toBe(
-      'user-content-mcp-59-preview2'
-    )
-  })
-
-  it('decodes HTML fragments and preserves exact heading targets when both IDs exist', () => {
-    const { document } = parseMarkdownPreviewDocument(
-      '<a id="раздел"></a>\n\n<a id="destination"></a>\n\n## Destination'
-    )
-    const ids = new Set(document.blocks.flatMap((block) => block.anchors))
-    expect(
-      resolveMarkdownPreviewAnchor('%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB', (id) => ids.has(id))
-    ).toBe('user-content-раздел')
-    expect(resolveMarkdownPreviewAnchor('destination', (id) => ids.has(id))).toBe('destination')
-    expect(resolveMarkdownPreviewAnchor('user-content-destination', (id) => ids.has(id))).toBe(
-      'user-content-destination'
-    )
-    expect(resolveMarkdownPreviewAnchor('missing', (id) => ids.has(id))).toBeNull()
-  })
-
   it('invalidates searches on document replacement', async () => {
     const engine = new MarkdownPreviewDocumentEngine()
     engine.load('needle\n\n'.repeat(100))
