@@ -20,6 +20,19 @@ export function decodeMarkdownPreviewAnchor(rawAnchor: string): string {
   }
 }
 
+export function resolveMarkdownPreviewAnchor(
+  rawAnchor: string,
+  hasAnchor: (id: string) => boolean
+): string | null {
+  const id = decodeMarkdownPreviewAnchor(rawAnchor)
+  if (hasAnchor(id)) {
+    return id
+  }
+  // Sanitization prefixes authored HTML IDs; generated heading IDs retain their original form.
+  const sanitizedId = `user-content-${id}`
+  return hasAnchor(sanitizedId) ? sanitizedId : null
+}
+
 export function scrollMarkdownPreviewVirtualizer(
   offset: number,
   options: { adjustments?: number; behavior?: ScrollBehavior },
